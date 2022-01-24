@@ -1173,9 +1173,29 @@ Ret probe_table(const Position& pos, ProbeState* result, WDLScore wdl = WDLDraw)
 
     TBTable<Type>* entry = TBTables.get<Type>(pos.material_key());
 
-    if (!entry || !mapped(*entry, pos))
-        return *result = FAIL, Ret();
+    if (!entry)
+    {
+        if (Type == WDL)
+        {
+            // Pieces strings in decreasing order for each color, like ("KPP","KR")
+            std::string w, b, filename;
+            for (PieceType pt = KING; pt >= PAWN; --pt) {
+                w += std::string(popcount(pos.pieces(WHITE, pt)), PieceToChar[pt]);
+                b += std::string(popcount(pos.pieces(BLACK, pt)), PieceToChar[pt]);
+            }
+            // filename may be w + 'v' + b or it may be b + 'v' w
+            if (w.length() > b.length())
+                filename = w + 'v' + b + ".rtbw";
+            else
+                filename = b + 'v' + w + ".rtbw";
 
+            sync_cout << "TBTable entry miss: " + filename + "     " << pos.fen() << "     psq_score: " << pos.psq_score() << sync_endl;
+        }
+        return *result = FAIL, Ret();
+    } else if (!mapped(*entry, pos))
+    {   
+        return *result = FAIL, Ret();
+    }
     return do_probe_table(pos, entry, wdl, result);
 }
 
