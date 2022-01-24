@@ -1175,7 +1175,37 @@ Ret probe_table(const Position& pos, ProbeState* result, WDLScore wdl = WDLDraw)
     TBTable<Type>* entry = TBTables.get<Type>(pos.material_key());
 
     if (!entry || !mapped(*entry, pos))
+    {
+        if ( pos.count<ALL_PIECES>() == 7 )
+        {
+            // A probe_table on 7 pieces was attempted and failed.
+
+            std::string white_pieces = std::string(pos.count<KING>(WHITE), 'K') +
+                                        std::string(pos.count<QUEEN>(WHITE), 'Q') +
+                                        std::string(pos.count<ROOK>(WHITE), 'R') +
+                                        std::string(pos.count<KNIGHT>(WHITE), 'N') +
+                                        std::string(pos.count<BISHOP>(WHITE), 'B') +
+                                        std::string(pos.count<PAWN>(WHITE), 'P');
+            std::string black_pieces = std::string(pos.count<KING>(BLACK), 'K') +
+                                        std::string(pos.count<QUEEN>(BLACK), 'Q') +
+                                        std::string(pos.count<ROOK>(BLACK), 'R') +
+                                        std::string(pos.count<KNIGHT>(BLACK), 'N') +
+                                        std::string(pos.count<BISHOP>(BLACK), 'B') +
+                                        std::string(pos.count<PAWN>(BLACK), 'P');
+            std::string wdl_filename;
+            if (white_pieces.length() >= black_pieces.length())
+            {
+                wdl_filename = white_pieces + "v" + black_pieces + ".rtbw";
+            }
+            else
+            {
+                wdl_filename = black_pieces + "v" + white_pieces + ".rtbw";
+            }
+            sync_cout << "TBTables.get(...) failed on 7 pieces: " << wdl_filename << sync_endl;
+        }
+        
         return *result = FAIL, Ret();
+    }
 
     return do_probe_table(pos, entry, wdl, result);
 }
