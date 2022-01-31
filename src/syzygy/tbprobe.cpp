@@ -327,7 +327,7 @@ struct PairsData {
 // is populated at init time but the nested PairsData records are populated at
 // first access, when the corresponding file is memory mapped.
 template<TBType Type>
-struct TBTable {
+struct TBTable { 
     typedef typename std::conditional<Type == WDL, WDLScore, int>::type Ret;
 
     static constexpr int Sides = Type == WDL ? 2 : 1;
@@ -1174,39 +1174,29 @@ Ret probe_table(const Position& pos, ProbeState* result, WDLScore wdl = WDLDraw)
 
     TBTable<Type>* entry = TBTables.get<Type>(pos.material_key());
 
-    if (!entry || !mapped(*entry, pos))
+    if (!entry)
     {
-        if ( pos.count<ALL_PIECES>() == 7 )
+        if (Type == WDL)
         {
-            // A probe_table on 7 pieces was attempted and failed.
-
-            std::string white_pieces = std::string(pos.count<KING>(WHITE), 'K') +
-                                        std::string(pos.count<QUEEN>(WHITE), 'Q') +
-                                        std::string(pos.count<ROOK>(WHITE), 'R') +
-                                        std::string(pos.count<KNIGHT>(WHITE), 'N') +
-                                        std::string(pos.count<BISHOP>(WHITE), 'B') +
-                                        std::string(pos.count<PAWN>(WHITE), 'P');
-            std::string black_pieces = std::string(pos.count<KING>(BLACK), 'K') +
-                                        std::string(pos.count<QUEEN>(BLACK), 'Q') +
-                                        std::string(pos.count<ROOK>(BLACK), 'R') +
-                                        std::string(pos.count<KNIGHT>(BLACK), 'N') +
-                                        std::string(pos.count<BISHOP>(BLACK), 'B') +
-                                        std::string(pos.count<PAWN>(BLACK), 'P');
-            std::string wdl_filename;
-            if (white_pieces.length() >= black_pieces.length())
-            {
-                wdl_filename = white_pieces + "v" + black_pieces + ".rtbw";
+            // Pieces strings in decreasing order for each color, like ("KPP","KR")
+            std::string w, b, filename;
+            for (PieceType pt = KING; pt >= PAWN; --pt) {
+                w += std::string(popcount(pos.pieces(WHITE, pt)), PieceToChar[pt]);
+                b += std::string(popcount(pos.pieces(BLACK, pt)), PieceToChar[pt]);
             }
+            // filename may be w + 'v' + b or it may be b + 'v' w
+            if (w.length() > b.length())
+                filename = w + 'v' + b + ".rtbw";
             else
-            {
-                wdl_filename = black_pieces + "v" + white_pieces + ".rtbw";
-            }
-            sync_cout << "TBTables.get(...) failed on 7 pieces: " << wdl_filename << sync_endl;
+                filename = b + 'v' + w + ".rtbw";
+
+            sync_cout << "TBTable entry miss: " + filename + "     " << pos.fen() << "     psq_score: " << pos.psq_score() << sync_endl;
         }
-        
+        return *result = FAIL, Ret();
+    } else if (!mapped(*entry, pos))
+    {   
         return *result = FAIL, Ret();
     }
-
     return do_probe_table(pos, entry, wdl, result);
 }
 
