@@ -345,15 +345,9 @@ endif
 ### ==========================================================================
 
 ### 3.1 Selecting compiler (default = gcc)
-ifeq ($(MAKELEVEL),0)
-       export ENV_CXXFLAGS := $(CXXFLAGS)
-       export ENV_DEPENDFLAGS := $(DEPENDFLAGS)
-       export ENV_LDFLAGS := $(LDFLAGS)
-endif
-
-CXXFLAGS = $(ENV_CXXFLAGS) -Wall -Wcast-qual -fno-exceptions -std=c++17 $(EXTRACXXFLAGS)
-DEPENDFLAGS = $(ENV_DEPENDFLAGS) -std=c++17
-LDFLAGS = $(ENV_LDFLAGS) $(EXTRALDFLAGS)
+CXXFLAGS += -Wall -Wcast-qual -fno-exceptions -std=c++17 $(EXTRACXXFLAGS)
+DEPENDFLAGS += -std=c++17
+LDFLAGS += $(EXTRALDFLAGS)
 
 ifeq ($(COMP),)
 	COMP=gcc
@@ -406,10 +400,10 @@ ifeq ($(COMP),mingw)
 	CXXFLAGS += -pedantic -Wextra -Wshadow
 endif
 
-ifeq ($(COMP),icc)
-	comp=icc
-	CXX=icpc
-	CXXFLAGS += -diag-disable 1476,10120 -Wcheck -Wabi -Wdeprecated -strict-ansi
+ifeq ($(COMP),dpcpp)
+	comp=dpcpp
+	CXX=dpcpp
+	CXXFLAGS += -Wabi -Wdeprecated -strict-ansi
 endif
 
 ifeq ($(COMP),clang)
@@ -476,9 +470,9 @@ ifeq ($(COMP),ndk)
 	LDFLAGS += -static-libstdc++ -pie -lm -latomic
 endif
 
-ifeq ($(comp),icc)
-	profile_make = icc-profile-make
-	profile_use = icc-profile-use
+ifeq ($(comp),dpcpp)
+	profile_make = dpcpp-profile-make
+	profile_use = dpcpp-profile-use
 else ifeq ($(comp),clang)
 	profile_make = clang-profile-make
 	profile_use = clang-profile-use
@@ -548,17 +542,17 @@ ifeq ($(optimize),yes)
 		endif
 	endif
 
-	ifeq ($(KERNEL),Darwin)
-		ifeq ($(comp),$(filter $(comp),clang icc))
-			CXXFLAGS += -mdynamic-no-pic
-		endif
+    ifeq ($(KERNEL),Darwin)
+        ifeq ($(comp),$(filter $(comp),clang dpcpp))
+            CXXFLAGS += -mdynamic-no-pic
+        endif
 
-		ifeq ($(comp),gcc)
-			ifneq ($(arch),arm64)
-				CXXFLAGS += -mdynamic-no-pic
-			endif
-		endif
-	endif
+        ifeq ($(comp),gcc)
+            ifneq ($(arch),arm64)
+                CXXFLAGS += -mdynamic-no-pic
+            endif
+        endif
+    endif
 
 	ifeq ($(comp),clang)
 		CXXFLAGS += -fexperimental-new-pass-manager
@@ -582,7 +576,7 @@ endif
 ifeq ($(popcnt),yes)
 	ifeq ($(arch),$(filter $(arch),ppc64 armv7 armv8 arm64))
 		CXXFLAGS += -DUSE_POPCNT
-	else ifeq ($(comp),icc)
+	else ifeq ($(comp),dpcpp)
 		CXXFLAGS += -msse3 -DUSE_POPCNT
 	else
 		CXXFLAGS += -msse3 -mpopcnt -DUSE_POPCNT
@@ -592,63 +586,63 @@ endif
 ### 3.6 SIMD architectures
 ifeq ($(avx2),yes)
 	CXXFLAGS += -DUSE_AVX2
-	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw dpcpp))
 		CXXFLAGS += -mavx2
 	endif
 endif
 
 ifeq ($(avxvnni),yes)
 	CXXFLAGS += -DUSE_VNNI -DUSE_AVXVNNI
-	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw dpcpp))
 		CXXFLAGS += -mavxvnni
 	endif
 endif
 
 ifeq ($(avx512),yes)
 	CXXFLAGS += -DUSE_AVX512
-	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw dpcpp))
 		CXXFLAGS += -mavx512f -mavx512bw
 	endif
 endif
 
 ifeq ($(vnni256),yes)
 	CXXFLAGS += -DUSE_VNNI
-	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw dpcpp))
 		CXXFLAGS += -mavx512f -mavx512bw -mavx512vnni -mavx512dq -mavx512vl -mprefer-vector-width=256
 	endif
 endif
 
 ifeq ($(vnni512),yes)
 	CXXFLAGS += -DUSE_VNNI
-	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw dpcpp))
 		CXXFLAGS += -mavx512vnni -mavx512dq -mavx512vl
 	endif
 endif
 
 ifeq ($(sse41),yes)
 	CXXFLAGS += -DUSE_SSE41
-	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw dpcpp))
 		CXXFLAGS += -msse4.1
 	endif
 endif
 
 ifeq ($(ssse3),yes)
 	CXXFLAGS += -DUSE_SSSE3
-	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw dpcpp))
 		CXXFLAGS += -mssse3
 	endif
 endif
 
 ifeq ($(sse2),yes)
 	CXXFLAGS += -DUSE_SSE2
-	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw dpcpp))
 		CXXFLAGS += -msse2
 	endif
 endif
 
 ifeq ($(mmx),yes)
 	CXXFLAGS += -DUSE_MMX
-	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw dpcpp))
 		CXXFLAGS += -mmmx
 	endif
 endif
@@ -667,7 +661,7 @@ endif
 ### 3.7 pext
 ifeq ($(pext),yes)
 	CXXFLAGS += -DUSE_PEXT
-	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw dpcpp))
 		CXXFLAGS += -mbmi2
 	endif
 endif
@@ -677,7 +671,7 @@ endif
 ### needs access to the optimization flags.
 ifeq ($(optimize),yes)
 ifeq ($(debug), no)
-	ifeq ($(comp),clang)
+	ifeq ($(comp),$(filter $(comp),clang dpcpp))
 		CXXFLAGS += -flto
 		ifeq ($(target_windows),yes)
 			CXXFLAGS += -fuse-ld=lld
@@ -790,7 +784,7 @@ endif
 
 
 .PHONY: help build profile-build strip install clean net objclean profileclean \
-        config-sanity icc-profile-use icc-profile-make gcc-profile-use gcc-profile-make \
+        config-sanity dpcpp-profile-use dpcpp-profile-make gcc-profile-use gcc-profile-make \
         clang-profile-use clang-profile-make
 
 build: net config-sanity
@@ -830,22 +824,22 @@ net:
 	$(eval nnuedownloadurl := https://tests.stockfishchess.org/api/nn/$(nnuenet))
 	$(eval curl_or_wget := $(shell if hash curl 2>/dev/null; then echo "curl -skL"; elif hash wget 2>/dev/null; then echo "wget -qO-"; fi))
 	@if test -f "$(nnuenet)"; then \
-		echo "Already available."; \
-	else \
-		if [ "x$(curl_or_wget)" = "x" ]; then \
-			echo "Automatic download failed: neither curl nor wget is installed. Install one of these tools or download the net manually"; exit 1; \
-		else \
-			echo "Downloading $(nnuedownloadurl)"; $(curl_or_wget) $(nnuedownloadurl) > $(nnuenet);\
-		fi; \
-	fi;
+            echo "Already available."; \
+         else \
+            if [ "x$(curl_or_wget)" = "x" ]; then \
+               echo "Automatic download failed: neither curl nor wget is installed. Install one of these tools or download the net manually"; exit 1; \
+            else \
+               echo "Downloading $(nnuedownloadurl)"; $(curl_or_wget) $(nnuedownloadurl) > $(nnuenet);\
+            fi; \
+        fi;
 	$(eval shasum_command := $(shell if hash shasum 2>/dev/null; then echo "shasum -a 256 "; elif hash sha256sum 2>/dev/null; then echo "sha256sum "; fi))
 	@if [ "x$(shasum_command)" != "x" ]; then \
-		if [ "$(nnuenet)" != "nn-"`$(shasum_command) $(nnuenet) | cut -c1-12`".nnue" ]; then \
-			echo "Failed download or $(nnuenet) corrupted, please delete!"; exit 1; \
-		fi \
-	else \
-		echo "shasum / sha256sum not found, skipping net validation"; \
-	fi
+	    if [ "$(nnuenet)" != "nn-"`$(shasum_command) $(nnuenet) | cut -c1-12`".nnue" ]; then \
+                echo "Failed download or $(nnuenet) corrupted, please delete!"; exit 1; \
+            fi \
+         else \
+            echo "shasum / sha256sum not found, skipping net validation"; \
+        fi
 
 # clean binaries and objects
 objclean:
@@ -923,7 +917,7 @@ config-sanity: net
 	@test "$(vnni256)" = "yes" || test "$(vnni256)" = "no"
 	@test "$(vnni512)" = "yes" || test "$(vnni512)" = "no"
 	@test "$(neon)" = "yes" || test "$(neon)" = "no"
-	@test "$(comp)" = "gcc" || test "$(comp)" = "icc" || test "$(comp)" = "mingw" || test "$(comp)" = "clang" \
+	@test "$(comp)" = "gcc" || test "$(comp)" = "dpcpp" || test "$(comp)" = "dpcpp" || test "$(comp)" = "mingw" || test "$(comp)" = "clang" \
 	|| test "$(comp)" = "armv7a-linux-androideabi16-clang"  || test "$(comp)" = "aarch64-linux-android21-clang"
 
 $(EXE): $(OBJS)
@@ -957,13 +951,13 @@ gcc-profile-use:
 	EXTRALDFLAGS='-lgcov' \
 	all
 
-icc-profile-make:
+dpcpp-profile-make:
 	@mkdir -p profdir
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) \
 	EXTRACXXFLAGS='-prof-gen=srcpos -prof_dir ./profdir' \
 	all
 
-icc-profile-use:
+dpcpp-profile-use:
 	$(MAKE) ARCH=$(ARCH) COMP=$(COMP) \
 	EXTRACXXFLAGS='-prof_use -prof_dir ./profdir' \
 	all
