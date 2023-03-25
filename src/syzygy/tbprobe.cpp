@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>   // For std::memset and std::memcpy
 #include <deque>
+#include <unordered_map>
 #include <fstream>
 #include <iostream>
 #include <list>
@@ -81,6 +82,8 @@ int MapKK[10][SQUARE_NB]; // [MapA1D1D4][SQUARE_NB]
 int Binomial[6][SQUARE_NB];    // [k][n] k elements from a set of n elements
 int LeadPawnIdx[6][SQUARE_NB]; // [leadPawnsCnt][SQUARE_NB]
 int LeadPawnsSize[6][4];       // [leadPawnsCnt][FILE_A..FILE_D]
+
+std::unordered_map<std::string, int> WDL_filename_frequencies;  // track the frequencies of WDL probe function calls
 
 // Comparison function to sort leading pawns in ascending MapPawns[] order
 bool pawns_comp(Square i, Square j) { return MapPawns[i] < MapPawns[j]; }
@@ -1165,30 +1168,44 @@ void* mapped(TBTable<Type>& e, const Position& pos) {
     return e.baseAddress;
 }
 
+// Generates the corresponding WDL filename from a given position.
+const std::string pos_to_WDL_filename(const Position& pos) {
+    std::string w, b, filename;
+    
+    // Pieces strings in decreasing order for each color, like ("KPP","KR")
+    for (PieceType pt = KING; pt >= PAWN; --pt) {
+        w += std::string(popcount(pos.pieces(WHITE, pt)), PieceToChar[pt]);
+        b += std::string(popcount(pos.pieces(BLACK, pt)), PieceToChar[pt]);
+    }
+    // filename may be w + 'v' + b or it may be b + 'v' w
+    if (w.length() > b.length())
+        filename = w + 'v' + b + ".rtbw";
+    else
+        filename = b + 'v' + w + ".rtbw";
+
+    return filename;
+}
+
 template<TBType Type, typename Ret = typename TBTable<Type>::Ret>
 Ret probe_table(const Position& pos, ProbeState* result, WDLScore wdl = WDLDraw) {
+    std::string filename;
 
     if (pos.count<ALL_PIECES>() == 2) // KvK
         return Ret(WDLDraw);
 
+    if (Type == WDL)
+    {
+        filename = pos_to_WDL_filename(pos);
+        WDL_filename_frequencies[filename]++;
+    }
+    
     TBTable<Type>* entry = TBTables.get<Type>(pos.material_key());
 
     if (!entry)
     {
-        if (Type == WDL)
-        {
-            // Pieces strings in decreasing order for each color, like ("KPP","KR")
-            std::string w, b, filename;
-            for (PieceType pt = KING; pt >= PAWN; --pt) {
-                w += std::string(popcount(pos.pieces(WHITE, pt)), PieceToChar[pt]);
-                b += std::string(popcount(pos.pieces(BLACK, pt)), PieceToChar[pt]);
-            }
-            // filename may be w + 'v' + b or it may be b + 'v' w
-            if (w.length() > b.length())
-                filename = w + 'v' + b + ".rtbw";
-            else
-                filename = b + 'v' + w + ".rtbw";
-
+        if (Type == WDL)   
+        { 
+            WDL_filename_frequencies[filename] = -1;
             sync_cout << "TBTable entry miss: " + filename + "     " << pos.fen() << "     psq_score: " << pos.psq_score() << sync_endl;
         }
         return *result = FAIL, Ret();
@@ -1641,6 +1658,43 @@ bool Tablebases::root_probe_wdl(Position& pos, Search::RootMoves& rootMoves) {
     }
 
     return true;
+}
+
+// Resets the WDL Tablebase statistics that will be logged into WDL_filename_frequencies.
+void Tablebases::reset_wdl_stats() {
+    WDL_filename_frequencies.clear();
+}
+
+// Prints WDL Tablebase statistics.
+// Prints the topmost given amount of frequently used tablebase files and missing files that have been logged into WDL_filename_frequencies.
+void Tablebases::print_wdl_stats(const size_t amount) {
+    // Copy the contents of the unordered_map to a vector of pairs
+    std::vector<std::pair<std::string, int>> sorted_wdl_frequencies(WDL_filename_frequencies.begin(), WDL_filename_frequencies.end());
+
+    // Sort the vector by frequency in descending order
+    std::sort(sorted_wdl_frequencies.begin(), sorted_wdl_frequencies.end(),
+              [](const std::pair<std::string, int>& a, const std::pair<std::string, int>& b) {
+                  return a.second > b.second;
+              });
+
+    // Print up to the topmost {amount} of tablebase filename sorted frequencies
+    size_t count = 0;
+    for (const auto& kv : sorted_wdl_frequencies) {
+        if (count >= amount || kv.second == -1) break;
+
+        sync_cout << "Filename: " << kv.first << ", Frequency: " << kv.second << sync_endl;
+        count++;
+    }
+    
+    sync_cout << "---------------" << sync_endl;
+
+    // Print all the missed filenames
+    for (const auto& kv : sorted_wdl_frequencies) {
+        if (kv.second == -1) {
+            sync_cout << "Tablebase miss: " << kv.first << sync_endl;
+        }
+    }
+
 }
 
 } // namespace Stockfish

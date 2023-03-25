@@ -206,6 +206,7 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
       th->rootState = setupStates->back();
   }
 
+  Tablebases::reset_wdl_stats();
   main()->start_searching();
 }
 

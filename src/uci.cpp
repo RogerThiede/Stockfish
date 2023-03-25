@@ -289,6 +289,14 @@ void UCI::loop(int argc, char* argv[]) {
               filename = f;
           Eval::NNUE::save_eval(filename);
       }
+      else if (token == "wdl")
+      {
+          size_t amount;
+          if (!(is >> amount)) {
+              amount = 20; // Assign default value in case of failure or if user didn't specify a value
+          }
+          Tablebases::print_wdl_stats(amount);
+      }
       else if (token == "--help" || token == "help" || token == "--license" || token == "license")
           sync_cout << "\nStockfish is a powerful chess engine for playing and analyzing."
                        "\nIt is released as free software licensed under the GNU GPLv3 License."
